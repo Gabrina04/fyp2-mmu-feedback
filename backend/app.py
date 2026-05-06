@@ -4,6 +4,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import json
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -11,7 +13,16 @@ CORS(app)
 def connect_sheet():
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    
+    # Try environment variable first (for Render)
+    creds_json = os.environ.get('GOOGLE_CREDENTIALS')
+    if creds_json:
+        creds_dict = json.loads(creds_json)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    else:
+        # Fall back to local credentials.json (for local development)
+        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    
     client = gspread.authorize(creds)
     sheet = client.open("MMU_Student_Feedback").sheet1
     return sheet
@@ -59,7 +70,6 @@ def submit_feedback():
         feedback_text = data.get('feedback_text', '')
         rating = int(data.get('rating', 0))
 
-        # Auto run VADER on submission
         label, score = classify_sentiment(feedback_text)
         fsi = calculate_FSI(rating, score)
 
@@ -72,9 +82,9 @@ def submit_feedback():
             rating,
             feedback_text,
             data.get('additional_comments', ''),
-            label,   # Auto filled Sentiment_Label
-            score,   # Auto filled Sentiment_Score
-            fsi      # Auto filled FSI
+            label,
+            score,
+            fsi
         ])
 
         return jsonify({"status": "success", "message": "Feedback submitted!"})
