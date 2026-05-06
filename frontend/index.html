@@ -223,7 +223,7 @@
             additional_comments
         };
 
-        fetch('http://127.0.0.1:5000/submit', {
+        fetch('https://fyp2-mmu-feedback.onrender.com/submit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -238,7 +238,7 @@
             }
         })
         .catch(err => {
-            alert('❌ Could not connect to server. Make sure Flask is running!');
+            alert('❌ Could not connect to server. Please try again!');
         });
     }
 </script>
