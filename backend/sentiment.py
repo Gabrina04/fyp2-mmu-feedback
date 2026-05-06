@@ -16,7 +16,7 @@ def connect_sheet():
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
 
-    # Custom Malaysian English words
+    # Custom Malaysian English words for local BIA accuracy
     analyzer.lexicon.update({
         'syok': 2.0,
         'oklah': 0.5,
@@ -53,7 +53,6 @@ def calculate_FSI(rating, sentiment_score):
 
 # Calculate S and FSI per category
 def calculate_category_summary(rows):
-    # Group by service category
     category_data = defaultdict(lambda: {
         'sentiment_scores': [],
         'fsi_scores': [],
@@ -95,13 +94,8 @@ def calculate_category_summary(rows):
         if n == 0:
             continue
 
-        # Formula 1: S = Σw / n
         S = round(sum(data['sentiment_scores']) / n, 4)
-
-        # Formula 2: FSI = Σ(R × S) / n
         FSI = round(sum(data['fsi_scores']) / n, 4)
-
-        # Average rating
         avg_rating = round(sum(data['ratings']) / n, 2)
 
         print(f"\n📌 Service Category: {category}")
@@ -112,10 +106,6 @@ def calculate_category_summary(rows):
         print(f"   Positive         : {data['positive']} responses")
         print(f"   Neutral          : {data['neutral']} responses")
         print(f"   Negative         : {data['negative']} responses")
-
-    print("\n" + "="*60)
-    print("✅ Summary complete!")
-    print("="*60)
 
 # Main function
 def run_sentiment_analysis():
@@ -132,7 +122,6 @@ def run_sentiment_analysis():
     for i, row in enumerate(rows):
         row_num = i + 2
 
-        # Skip if already processed
         if row.get('Sentiment_Label') and row.get('Sentiment_Score'):
             continue
 
@@ -145,17 +134,14 @@ def run_sentiment_analysis():
         label, score = classify_sentiment(feedback_text)
         fsi = calculate_FSI(rating, score)
 
-        # Write back to Google Sheet
-        sheet.update_cell(row_num, 9, label)
-        sheet.update_cell(row_num, 10, score)
-        sheet.update_cell(row_num, 11, fsi)
+        # UPDATE: Shifted column indexes to match the new Column F (Specific_Area)
+        sheet.update_cell(row_num, 10, label) # Moved from 9 to 10
+        sheet.update_cell(row_num, 11, score) # Moved from 10 to 11
+        sheet.update_cell(row_num, 12, fsi)   # Moved from 11 to 12
 
         print(f"✅ Row {row_num}: '{feedback_text[:40]}' → {label} (score: {score}, FSI: {fsi})")
 
-    # Refresh rows after processing
     rows = sheet.get_all_records()
-
-    # Calculate and print category summary
     calculate_category_summary(rows)
 
 if __name__ == '__main__':

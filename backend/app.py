@@ -29,6 +29,8 @@ def connect_sheet():
 
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
+    
+    # Custom Malaysian English words for better local sentiment accuracy
     analyzer.lexicon.update({
         'syok': 2.0,
         'oklah': 0.5,
@@ -41,6 +43,7 @@ def classify_sentiment(text):
         'lambat': -1.0,
         'cepat': 1.0
     })
+    
     score = analyzer.polarity_scores(text)['compound']
     if score >= 0.05:
         label = 'Positive'
@@ -73,18 +76,20 @@ def submit_feedback():
         label, score = classify_sentiment(feedback_text)
         fsi = calculate_FSI(rating, score)
 
+        # Updated to include specific_area in the 6th index (Column F)[cite: 1]
         sheet.append_row([
-            timestamp,
-            data.get('student_id', ''),
-            data.get('faculty', ''),
-            data.get('level', ''),
-            data.get('service_category', ''),
-            rating,
-            feedback_text,
-            data.get('additional_comments', ''),
-            label,
-            score,
-            fsi
+            timestamp,                             # Col A (1)
+            data.get('student_id', ''),            # Col B (2)
+            data.get('faculty', ''),               # Col C (3)
+            data.get('level', ''),                 # Col D (4)
+            data.get('service_category', ''),      # Col E (5)
+            data.get('specific_area', ''),         # Col F (6) - NEW COLUMN[cite: 1]
+            rating,                                # Col G (7)
+            feedback_text,                         # Col H (8)
+            data.get('additional_comments', ''),   # Col I (9)
+            label,                                 # Col J (10)
+            score,                                 # Col K (11)
+            fsi                                    # Col L (12)
         ])
 
         return jsonify({"status": "success", "message": "Feedback submitted!"})
