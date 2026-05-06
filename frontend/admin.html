@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMU Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; }
+
+        .header {
+            background: #003087;
+            color: white;
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 18px; }
+        .logout-btn {
+            background: white;
+            color: #003087;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .kpi-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #003087;
+        }
+        .kpi-card .label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 6px;
+        }
+        .kpi-card.positive .value { color: #28a745; }
+        .kpi-card.negative .value { color: #dc3545; }
+        .kpi-card.neutral .value { color: #f5a623; }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .card h3 {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #003087;
+            padding-bottom: 8px;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #003087; color: white; padding: 10px; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f9f9f9; }
+
+        .badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge.positive { background: #d4edda; color: #155724; }
+        .badge.negative { background: #f8d7da; color: #721c24; }
+        .badge.neutral { background: #fff3cd; color: #856404; }
+
+        .whatif-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .whatif-card h3 {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #003087;
+            padding-bottom: 8px;
+        }
+
+        .whatif-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .whatif-row label { font-size: 14px; color: #333; min-width: 180px; }
+        .whatif-row input[type="range"] { flex: 1; min-width: 200px; }
+        .whatif-row span { font-size: 14px; font-weight: bold; color: #003087; min-width: 40px; }
+
+        .simulate-btn {
+            background: #003087;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .simulate-btn:hover { background: #00215e; }
+
+        .result-box {
+            display: none;
+            background: #e8f0fe;
+            border-left: 4px solid #003087;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🎓 MMU Student Satisfaction Dashboard</h1>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<div class="container">
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="value" id="total-count">-</div>
+            <div class="label">Total Responses</div>
+        </div>
+        <div class="kpi-card positive">
+            <div class="value" id="positive-pct">-</div>
+            <div class="label">Positive Sentiment</div>
+        </div>
+        <div class="kpi-card negative">
+            <div class="value" id="negative-pct">-</div>
+            <div class="label">Negative Sentiment</div>
+        </div>
+        <div class="kpi-card neutral">
+            <div class="value" id="overall-fsi">-</div>
+            <div class="label">Overall FSI</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid-2">
+        <div class="card">
+            <h3>📊 Sentiment Distribution by Service</h3>
+            <canvas id="sentimentChart"></canvas>
+        </div>
+        <div class="card">
+            <h3>🏆 Service Priority Ranking</h3>
+            <table id="priority-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Service Area</th>
+                        <th>FSI</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="priority-body">
+                    <tr><td colspan="4" class="loading">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- What-If Simulation -->
+    <div class="whatif-card">
+        <h3>🔮 What-If Scenario Simulator</h3>
+        <p style="font-size:13px;color:#888;margin-bottom:16px;">Simulate the effect of improving sentiment in each service area.</p>
+
+        <div class="whatif-row">
+            <label>Academic Support improvement:</label>
+            <input type="range" id="slider-academic" min="0" max="100" value="0" oninput="document.getElementById('val-academic').textContent = this.value + '%'">
+            <span id="val-academic">0%</span>
+        </div>
+        <div class="whatif-row">
+            <label>Campus Facilities improvement:</label>
+            <input type="range" id="slider-facilities" min="0" max="100" value="0" oninput="document.getElementById('val-facilities').textContent = this.value + '%'">
+            <span id="val-facilities">0%</span>
+        </div>
+        <div class="whatif-row">
+            <label>Administrative Services improvement:</label>
+            <input type="range" id="slider-admin" min="0" max="100" value="0" oninput="document.getElementById('val-admin').textContent = this.value + '%'">
+            <span id="val-admin">0%</span>
+        </div>
+
+        <button class="simulate-btn" onclick="runSimulation()">SIMULATE</button>
+
+        <div class="result-box" id="result-box"></div>
+    </div>
+
+</div>
+
+<script>
+    // Check admin access
+    window.onload = function() {
+        const role = sessionStorage.getItem('role');
+        if (!role || role !== 'admin') {
+            window.location.href = 'login.html';
+        }
+        loadDashboard();
+    }
+
+    function logout() {
+        sessionStorage.clear();
+        window.location.href = 'login.html';
+    }
+
+    let dashboardData = {};
+
+    async function loadDashboard() {
+        try {
+            const response = await fetch('https://fyp2-mmu-feedback.onrender.com/dashboard');
+            const data = await response.json();
+            dashboardData = data;
+            renderDashboard(data);
+        } catch (err) {
+            console.error('Error loading dashboard:', err);
+        }
+    }
+
+    function renderDashboard(data) {
+        // KPI cards
+        document.getElementById('total-count').textContent = data.total || 0;
+        document.getElementById('positive-pct').textContent = (data.positive_pct || 0) + '%';
+        document.getElementById('negative-pct').textContent = (data.negative_pct || 0) + '%';
+        document.getElementById('overall-fsi').textContent = data.overall_fsi || 0;
+
+        // Chart
+        const categories = Object.keys(data.categories || {});
+        const positiveData = categories.map(c => data.categories[c].positive || 0);
+        const neutralData = categories.map(c => data.categories[c].neutral || 0);
+        const negativeData = categories.map(c => data.categories[c].negative || 0);
+
+        new Chart(document.getElementById('sentimentChart'), {
+            type: 'bar',
+            data: {
+                labels: categories,
+                datasets: [
+                    { label: 'Positive', data: positiveData, backgroundColor: '#28a745' },
+                    { label: 'Neutral', data: neutralData, backgroundColor: '#f5a623' },
+                    { label: 'Negative', data: negativeData, backgroundColor: '#dc3545' }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { x: { stacked: true }, y: { stacked: true } }
+            }
+        });
+
+        // Priority table
+        const tbody = document.getElementById('priority-body');
+        tbody.innerHTML = '';
+        const sorted = categories.sort((a, b) => (data.categories[b].negative || 0) - (data.categories[a].negative || 0));
+        sorted.forEach((cat, i) => {
+            const fsi = data.categories[cat].fsi || 0;
+            const neg = data.categories[cat].negative || 0;
+            const status = neg > 3 ? 'negative' : fsi > 1 ? 'positive' : 'neutral';
+            const statusText = neg > 3 ? 'Needs Attention' : fsi > 1 ? 'Good' : 'Moderate';
+            tbody.innerHTML += `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${cat}</td>
+                    <td>${fsi}</td>
+                    <td><span class="badge ${status}">${statusText}</span></td>
+                </tr>`;
+        });
+    }
+
+    function runSimulation() {
+        const academicImprovement = parseInt(document.getElementById('slider-academic').value) / 100;
+        const facilitiesImprovement = parseInt(document.getElementById('slider-facilities').value) / 100;
+        const adminImprovement = parseInt(document.getElementById('slider-admin').value) / 100;
+
+        const data = dashboardData;
+        if (!data.categories) return;
+
+        let totalFSI = 0;
+        let count = 0;
+
+        Object.keys(data.categories).forEach(cat => {
+            let fsi = parseFloat(data.categories[cat].fsi || 0);
+            if (cat === 'Academic Support') fsi += fsi * academicImprovement;
+            if (cat === 'Campus Facilities') fsi += fsi * facilitiesImprovement;
+            if (cat === 'Administrative Services') fsi += fsi * adminImprovement;
+            totalFSI += fsi;
+            count++;
+        });
+
+        const newFSI = count > 0 ? (totalFSI / count).toFixed(4) : 0;
+        const oldFSI = data.overall_fsi || 0;
+        const diff = (newFSI - oldFSI).toFixed(4);
+
+        const resultBox = document.getElementById('result-box');
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = `
+            <strong>📈 Simulation Result:</strong><br><br>
+            Current Overall FSI: <strong>${oldFSI}</strong><br>
+            Projected Overall FSI: <strong>${newFSI}</strong><br>
+            Improvement: <strong style="color:#28a745">+${diff}</strong>
+        `;
+    }
+</script>
+
+</body>
+</html>

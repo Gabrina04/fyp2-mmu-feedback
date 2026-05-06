@@ -83,6 +83,7 @@
             border: none;
             border-radius: 6px;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
             margin-top: 10px;
         }
@@ -121,7 +122,7 @@
 
     <div class="form-group">
         <label>Student ID / Email *</label>
-        <input type="text" id="student_id" placeholder="Enter your Student ID or email" readonly>
+        <input type="text" id="student_id" placeholder="Loading ID..." readonly>
     </div>
 
     <div class="row">
@@ -146,29 +147,33 @@
         </div>
     </div>
 
+    <!-- Category Dropdown -->
     <div class="form-group">
         <label>Service Category *</label>
-        <select id="service_category">
+        <select id="service_category" onchange="updateSubCategory()">
             <option value="" disabled selected>Select a service category</option>
-            <option>Academic Support</option>
-            <option>Campus Facilities</option>
-            <option>Administrative Services</option>
+            <option value="Academic Support">Academic Support</option>
+            <option value="Campus Facilities">Campus Facilities (Melaka)</option>
+            <option value="Administrative Services">Administrative Services</option>
+        </select>
+    </div>
+
+    <!-- Specific Area Dropdown (Updated dynamically) -->
+    <div class="form-group">
+        <label>Specific Area *</label>
+        <select id="specific_area">
+            <option value="" disabled selected>Please select a category first</option>
         </select>
     </div>
 
     <div class="form-group">
         <label>Overall Satisfaction Rating *</label>
         <div class="star-rating">
-            <input type="radio" id="star5" name="rating" value="5">
-            <label for="star5">★</label>
-            <input type="radio" id="star4" name="rating" value="4">
-            <label for="star4">★</label>
-            <input type="radio" id="star3" name="rating" value="3">
-            <label for="star3">★</label>
-            <input type="radio" id="star2" name="rating" value="2">
-            <label for="star2">★</label>
-            <input type="radio" id="star1" name="rating" value="1">
-            <label for="star1">★</label>
+            <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
+            <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+            <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+            <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+            <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
         </div>
     </div>
 
@@ -188,14 +193,57 @@
 </div>
 
 <script>
+    // Configuration for the dropdown options based on your requirements
+    const areaOptions = {
+        "Academic Support": [
+            "Moodle / CaLeM Platform",
+            "MMU Library (Melaka)",
+            "Lecturer Quality & Feedback"
+        ],
+        "Campus Facilities": [
+            "CLIC (Creative Learning and IT Centre)",
+            "Emerald & Sapphire Hostels",
+            "Hostel Wi-Fi Connectivity",
+            "FIST Labs",
+            "Food Court / Cafeteria",
+            "CLC (Central Lecture Complex)",
+            "Sports Complex & Gym",
+            "Campus Security & Parking"
+        ],
+        "Administrative Services": [
+            "MMU Portal",
+            "Finance Office",
+            "Exam Unit",
+            "International Office Support"
+        ]
+    };
+
+    function updateSubCategory() {
+        const category = document.getElementById('service_category').value;
+        const areaDropdown = document.getElementById('specific_area');
+        areaDropdown.innerHTML = '<option value="" disabled selected>Select specific area</option>';
+
+        if (areaOptions[category]) {
+            areaOptions[category].forEach(opt => {
+                let option = document.createElement("option");
+                option.text = opt;
+                option.value = opt;
+                areaDropdown.add(option);
+            });
+        }
+    }
+
     window.onload = function() {
         const studentId = sessionStorage.getItem('student_id');
         const role = sessionStorage.getItem('role');
-        if (!role || role !== 'student') {
-            window.location.href = 'login.html';
-        }
+        
+        // Redirect if not logged in (Uncomment this for production)
+        // if (!role || role !== 'student') { window.location.href = 'login.html'; }
+
         if (studentId) {
             document.getElementById('student_id').value = studentId;
+        } else {
+            document.getElementById('student_id').value = "1211108095"; // Fallback for your dev testing
         }
     }
 
@@ -204,11 +252,12 @@
         const faculty = document.getElementById('faculty').value;
         const level = document.getElementById('level').value;
         const service_category = document.getElementById('service_category').value;
+        const specific_area = document.getElementById('specific_area').value;
         const rating = document.querySelector('input[name="rating"]:checked');
         const feedback_text = document.getElementById('feedback_text').value.trim();
         const additional_comments = document.getElementById('additional_comments').value.trim();
 
-        if (!student_id || !faculty || !level || !service_category || !rating || !feedback_text) {
+        if (!faculty || !level || !service_category || !specific_area || !rating || !feedback_text) {
             alert('Please fill in all required fields and select a star rating!');
             return;
         }
@@ -218,6 +267,7 @@
             faculty,
             level,
             service_category,
+            specific_area,
             rating: rating.value,
             feedback_text,
             additional_comments
@@ -239,6 +289,7 @@
         })
         .catch(err => {
             alert('❌ Could not connect to server. Please try again!');
+            console.error(err);
         });
     }
 </script>
