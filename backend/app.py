@@ -6,6 +6,7 @@ from datetime import datetime
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import json
 import os
+from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app)
@@ -13,37 +14,23 @@ CORS(app)
 def connect_sheet():
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/drive"]
-    
-    # Try environment variable first (for Render)
     creds_json = os.environ.get('GOOGLE_CREDENTIALS')
     if creds_json:
         creds_dict = json.loads(creds_json)
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     else:
-        # Fall back to local credentials.json (for local development)
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-    
     client = gspread.authorize(creds)
     sheet = client.open("MMU_Student_Feedback").sheet1
     return sheet
 
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
-    
-    # Custom Malaysian English words for better local sentiment accuracy
     analyzer.lexicon.update({
-        'syok': 2.0,
-        'oklah': 0.5,
-        'bagus': 2.0,
-        'teruk': -2.0,
-        'cincai': -1.5,
-        'best': 1.5,
-        'terima kasih': 1.5,
-        'susah': -1.0,
-        'lambat': -1.0,
-        'cepat': 1.0
+        'syok': 2.0, 'oklah': 0.5, 'bagus': 2.0, 'teruk': -2.0,
+        'cincai': -1.5, 'best': 1.5, 'terima kasih': 1.5,
+        'susah': -1.0, 'lambat': -1.0, 'cepat': 1.0
     })
-    
     score = analyzer.polarity_scores(text)['compound']
     if score >= 0.05:
         label = 'Positive'
@@ -57,8 +44,7 @@ def calculate_FSI(rating, sentiment_score):
     try:
         r = float(rating)
         s = float(sentiment_score)
-        fsi = round(r * s, 4)
-        return fsi
+        return round(r * s, 4)
     except:
         return 0
 
@@ -67,32 +53,140 @@ def submit_feedback():
     try:
         data = request.json
         sheet = connect_sheet()
-
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
         feedback_text = data.get('feedback_text', '')
         rating = int(data.get('rating', 0))
-
         label, score = classify_sentiment(feedback_text)
         fsi = calculate_FSI(rating, score)
 
-        # Updated to include specific_area in the 6th index (Column F)[cite: 1]
         sheet.append_row([
-            timestamp,                             # Col A (1)
-            data.get('student_id', ''),            # Col B (2)
-            data.get('faculty', ''),               # Col C (3)
-            data.get('level', ''),                 # Col D (4)
-            data.get('service_category', ''),      # Col E (5)
-            data.get('specific_area', ''),         # Col F (6) - NEW COLUMN[cite: 1]
-            rating,                                # Col G (7)
-            feedback_text,                         # Col H (8)
-            data.get('additional_comments', ''),   # Col I (9)
-            label,                                 # Col J (10)
-            score,                                 # Col K (11)
-            fsi                                    # Col L (12)
+            timestamp,
+            data.get('student_id', ''),
+            data.get('faculty', ''),
+            data.get('level', ''),
+            data.get('service_category', ''),
+            data.get('specific_area', ''),
+            rating,
+            feedback_text,
+            data.get('additional_comments', ''),
+            label,
+            score,
+            fsi
         ])
-
         return jsonify({"status": "success", "message": "Feedback submitted!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/dashboard', methods=['GET'])
+def get_dashboard():
+    try:
+        sheet = connect_sheet()
+        rows = sheet.get_all_records()
+
+        if not rows:
+            return jsonify({"status": "error", "message": "No data found"}), 404
+
+        total = len(rows)
+        positive = sum(1 for r in rows if r.get('Sentiment_Label') == 'Positive')
+        negative = sum(1 for r in rows if r.get('Sentiment_Label') == 'Negative')
+        neutral = sum(1 for r in rows if r.get('Sentiment_Label') == 'Neutral')
+
+        positive_pct = round((positive / total) * 100, 1) if total > 0 else 0
+        negative_pct = round((negative / total) * 100, 1) if total > 0 else 0
+
+        # Overall FSI
+        fsi_values = []
+        for r in rows:
+            try:
+                fsi_values.append(float(r.get('FSI', 0)))
+            except:
+                continue
+        overall_fsi = round(sum(fsi_values) / len(fsi_values), 4) if fsi_values else 0
+
+        # Per category breakdown
+        category_data = defaultdict(lambda: {
+            'positive': 0, 'neutral': 0, 'negative': 0,
+            'fsi_scores': [], 'total': 0
+        })
+
+        for r in rows:
+            cat = r.get('Service_Category', 'Unknown')
+            label = r.get('Sentiment_Label', '')
+            try:
+                fsi = float(r.get('FSI', 0))
+            except:
+                fsi = 0
+
+            category_data[cat]['total'] += 1
+            category_data[cat]['fsi_scores'].append(fsi)
+
+            if label == 'Positive':
+                category_data[cat]['positive'] += 1
+            elif label == 'Negative':
+                category_data[cat]['negative'] += 1
+            else:
+                category_data[cat]['neutral'] += 1
+
+        # Per specific area breakdown
+        area_data = defaultdict(lambda: {
+            'positive': 0, 'neutral': 0, 'negative': 0,
+            'fsi_scores': [], 'total': 0
+        })
+
+        for r in rows:
+            area = r.get('Specific_Area', 'Unknown')
+            label = r.get('Sentiment_Label', '')
+            try:
+                fsi = float(r.get('FSI', 0))
+            except:
+                fsi = 0
+
+            area_data[area]['total'] += 1
+            area_data[area]['fsi_scores'].append(fsi)
+
+            if label == 'Positive':
+                area_data[area]['positive'] += 1
+            elif label == 'Negative':
+                area_data[area]['negative'] += 1
+            else:
+                area_data[area]['neutral'] += 1
+
+        # Build categories response
+        categories = {}
+        for cat, d in category_data.items():
+            n = len(d['fsi_scores'])
+            categories[cat] = {
+                'positive': d['positive'],
+                'neutral': d['neutral'],
+                'negative': d['negative'],
+                'total': d['total'],
+                'fsi': round(sum(d['fsi_scores']) / n, 4) if n > 0 else 0
+            }
+
+        # Build areas response
+        areas = {}
+        for area, d in area_data.items():
+            n = len(d['fsi_scores'])
+            areas[area] = {
+                'positive': d['positive'],
+                'neutral': d['neutral'],
+                'negative': d['negative'],
+                'total': d['total'],
+                'fsi': round(sum(d['fsi_scores']) / n, 4) if n > 0 else 0
+            }
+
+        return jsonify({
+            "status": "success",
+            "total": total,
+            "positive": positive,
+            "negative": negative,
+            "neutral": neutral,
+            "positive_pct": positive_pct,
+            "negative_pct": negative_pct,
+            "overall_fsi": overall_fsi,
+            "categories": categories,
+            "areas": areas
+        })
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
