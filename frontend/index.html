@@ -89,6 +89,21 @@
         }
         .submit-btn:hover { background: #00215e; }
 
+        .another-btn {
+            width: 100%;
+            padding: 12px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            display: none;
+        }
+        .another-btn:hover { background: #1e7e34; }
+
         .footer-note {
             text-align: center;
             font-size: 12px;
@@ -147,7 +162,6 @@
         </div>
     </div>
 
-    <!-- Category Dropdown -->
     <div class="form-group">
         <label>Service Category *</label>
         <select id="service_category" onchange="updateSubCategory()">
@@ -158,7 +172,6 @@
         </select>
     </div>
 
-    <!-- Specific Area Dropdown -->
     <div class="form-group">
         <label>Specific Area *</label>
         <select id="specific_area">
@@ -187,13 +200,13 @@
         <textarea id="additional_comments" placeholder="Any other suggestions or concerns?"></textarea>
     </div>
 
-    <button class="submit-btn" onclick="submitFeedback()">SUBMIT FEEDBACK</button>
+    <button class="submit-btn" id="submit-btn" onclick="submitFeedback()">SUBMIT FEEDBACK</button>
+    <button class="another-btn" id="another-btn" onclick="resetForm()">SUBMIT ANOTHER FEEDBACK</button>
     <div class="footer-note">Your feedback is confidential and helps improve MMU services.</div>
     <div class="success-msg" id="success_msg">✅ Thank you! Your feedback has been submitted successfully.</div>
 </div>
 
 <script>
-    // Sub-category options mapped to categories
     const areaOptions = {
         "Academic Support": [
             "Moodle",
@@ -222,7 +235,6 @@
         const category = document.getElementById('service_category').value;
         const areaDropdown = document.getElementById('specific_area');
         areaDropdown.innerHTML = '<option value="" disabled selected>Select specific area</option>';
-
         if (areaOptions[category]) {
             areaOptions[category].forEach(opt => {
                 let option = document.createElement("option");
@@ -236,16 +248,28 @@
     window.onload = function() {
         const studentId = sessionStorage.getItem('student_id');
         const role = sessionStorage.getItem('role');
-        
-        // Uncomment the login check once your login.html is ready
-        // if (!role || role !== 'student') { window.location.href = 'login.html'; }
-
+        if (!role || role !== 'student') {
+            window.location.href = 'login.html';
+        }
         if (studentId) {
             document.getElementById('student_id').value = studentId;
-        } else {
-            // Placeholder ID for your local development testing
-            document.getElementById('student_id').value = "1211108095"; 
         }
+    }
+
+    function resetForm() {
+        // Reset all fields except Student ID
+        document.getElementById('faculty').selectedIndex = 0;
+        document.getElementById('level').selectedIndex = 0;
+        document.getElementById('service_category').selectedIndex = 0;
+        document.getElementById('specific_area').innerHTML = '<option value="" disabled selected>Please select a category first</option>';
+        document.querySelectorAll('input[name="rating"]').forEach(r => r.checked = false);
+        document.getElementById('feedback_text').value = '';
+        document.getElementById('additional_comments').value = '';
+
+        // Hide success message and another button, show submit button
+        document.getElementById('success_msg').style.display = 'none';
+        document.getElementById('another-btn').style.display = 'none';
+        document.getElementById('submit-btn').style.display = 'block';
     }
 
     function submitFeedback() {
@@ -253,7 +277,7 @@
         const faculty = document.getElementById('faculty').value;
         const level = document.getElementById('level').value;
         const service_category = document.getElementById('service_category').value;
-        const specific_area = document.getElementById('specific_area').value; // New Field
+        const specific_area = document.getElementById('specific_area').value;
         const rating = document.querySelector('input[name="rating"]:checked');
         const feedback_text = document.getElementById('feedback_text').value.trim();
         const additional_comments = document.getElementById('additional_comments').value.trim();
@@ -268,7 +292,7 @@
             faculty,
             level,
             service_category,
-            specific_area, // Sent to backend
+            specific_area,
             rating: rating.value,
             feedback_text,
             additional_comments
@@ -283,7 +307,8 @@
         .then(result => {
             if (result.status === 'success') {
                 document.getElementById('success_msg').style.display = 'block';
-                alert('✅ Feedback submitted successfully!');
+                document.getElementById('submit-btn').style.display = 'none';
+                document.getElementById('another-btn').style.display = 'block';
             } else {
                 alert('❌ Error: ' + result.message);
             }
