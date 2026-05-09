@@ -86,8 +86,13 @@
             font-weight: bold;
             cursor: pointer;
             margin-top: 10px;
+            transition: background 0.2s;
         }
         .submit-btn:hover { background: #00215e; }
+        .submit-btn:disabled {
+            background: #7a9cc7;
+            cursor: not-allowed;
+        }
 
         .another-btn {
             width: 100%;
@@ -115,6 +120,17 @@
             display: none;
             background: #d4edda;
             color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .loading-msg {
+            display: none;
+            background: #fff3cd;
+            color: #856404;
             padding: 12px;
             border-radius: 6px;
             text-align: center;
@@ -202,6 +218,7 @@
 
     <button class="submit-btn" id="submit-btn" onclick="submitFeedback()">SUBMIT FEEDBACK</button>
     <button class="another-btn" id="another-btn" onclick="resetForm()">SUBMIT ANOTHER FEEDBACK</button>
+    <div class="loading-msg" id="loading-msg">⏳ Submitting your feedback, please wait...</div>
     <div class="footer-note">Your feedback is confidential and helps improve MMU services.</div>
     <div class="success-msg" id="success_msg">✅ Thank you! Your feedback has been submitted successfully.</div>
 </div>
@@ -257,7 +274,6 @@
     }
 
     function resetForm() {
-        // Reset all fields except Student ID
         document.getElementById('faculty').selectedIndex = 0;
         document.getElementById('level').selectedIndex = 0;
         document.getElementById('service_category').selectedIndex = 0;
@@ -265,11 +281,12 @@
         document.querySelectorAll('input[name="rating"]').forEach(r => r.checked = false);
         document.getElementById('feedback_text').value = '';
         document.getElementById('additional_comments').value = '';
-
-        // Hide success message and another button, show submit button
         document.getElementById('success_msg').style.display = 'none';
+        document.getElementById('loading-msg').style.display = 'none';
         document.getElementById('another-btn').style.display = 'none';
         document.getElementById('submit-btn').style.display = 'block';
+        document.getElementById('submit-btn').disabled = false;
+        document.getElementById('submit-btn').textContent = 'SUBMIT FEEDBACK';
     }
 
     function submitFeedback() {
@@ -298,6 +315,11 @@
             additional_comments
         };
 
+        // Show loading state
+        document.getElementById('submit-btn').textContent = '⏳ Submitting...';
+        document.getElementById('submit-btn').disabled = true;
+        document.getElementById('loading-msg').style.display = 'block';
+
         fetch('https://fyp2-mmu-feedback.onrender.com/submit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -306,14 +328,21 @@
         .then(res => res.json())
         .then(result => {
             if (result.status === 'success') {
+                document.getElementById('loading-msg').style.display = 'none';
                 document.getElementById('success_msg').style.display = 'block';
                 document.getElementById('submit-btn').style.display = 'none';
                 document.getElementById('another-btn').style.display = 'block';
             } else {
+                document.getElementById('loading-msg').style.display = 'none';
+                document.getElementById('submit-btn').textContent = 'SUBMIT FEEDBACK';
+                document.getElementById('submit-btn').disabled = false;
                 alert('❌ Error: ' + result.message);
             }
         })
         .catch(err => {
+            document.getElementById('loading-msg').style.display = 'none';
+            document.getElementById('submit-btn').textContent = 'SUBMIT FEEDBACK';
+            document.getElementById('submit-btn').disabled = false;
             alert('❌ Could not connect to server. Please try again!');
             console.error(err);
         });
