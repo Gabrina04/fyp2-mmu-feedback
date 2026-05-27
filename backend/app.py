@@ -6,6 +6,7 @@ from datetime import datetime
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import json
 import os
+import re
 from collections import defaultdict
 
 app = Flask(__name__)
@@ -23,6 +24,20 @@ def connect_sheet():
     client = gspread.authorize(creds)
     sheet = client.open("MMU_Student_Feedback").sheet1
     return sheet
+
+def censor_names(text):
+    # Common Malaysian academic titles
+    titles = [
+        'Dr', 'Dr.', 'Prof', 'Prof.', 'Professor',
+        'Mr', 'Mr.', 'Mrs', 'Mrs.', 'Ms', 'Ms.',
+        'Sir', 'Madam', 'Mdm', 'Mdm.'
+    ]
+    censored = text
+    # Censor names that follow titles (e.g., "Dr Ahmad", "Prof Lee Chong")
+    for title in titles:
+        pattern = rf'\b{re.escape(title)}\.?\s+[A-Z][a-zA-Z]+(\s+[A-Z][a-zA-Z]+)*'
+        censored = re.sub(pattern, f'{title} [Name Redacted]', censored)
+    return censored
 
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
@@ -54,7 +69,11 @@ def submit_feedback():
         data = request.json
         sheet = connect_sheet()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        feedback_text = data.get('feedback_text', '')
+
+        # Censor lecturer names before saving
+        feedback_text = censor_names(data.get('feedback_text', ''))
+        additional_comments = censor_names(data.get('additional_comments', ''))
+
         rating = int(data.get('rating', 0))
         label, score = classify_sentiment(feedback_text)
         fsi = calculate_FSI(rating, score)
@@ -68,7 +87,7 @@ def submit_feedback():
             data.get('specific_area', ''),
             rating,
             feedback_text,
-            data.get('additional_comments', ''),
+            additional_comments,
             label,
             score,
             fsi
@@ -116,10 +135,8 @@ def get_dashboard():
                 fsi = float(r.get('FSI', 0))
             except:
                 fsi = 0
-
             category_data[cat]['total'] += 1
             category_data[cat]['fsi_scores'].append(fsi)
-
             if label == 'Positive':
                 category_data[cat]['positive'] += 1
             elif label == 'Negative':
@@ -140,10 +157,8 @@ def get_dashboard():
                 fsi = float(r.get('FSI', 0))
             except:
                 fsi = 0
-
             area_data[area]['total'] += 1
             area_data[area]['fsi_scores'].append(fsi)
-
             if label == 'Positive':
                 area_data[area]['positive'] += 1
             elif label == 'Negative':
