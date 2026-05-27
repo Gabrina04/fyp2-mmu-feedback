@@ -6,3 +6,4 @@ vaderSentiment
 pandas
 openpyxl
 gunicorn
+nltk
