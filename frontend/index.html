@@ -38,7 +38,15 @@
 
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; color: #333; }
-        
+
+        .warning-note {
+            display: block;
+            color: #dc3545;
+            font-size: 11px;
+            font-weight: normal;
+            margin-top: 3px;
+        }
+
         input[type="text"], select, textarea {
             width: 100%;
             padding: 10px 12px;
@@ -207,12 +215,18 @@
     </div>
 
     <div class="form-group">
-        <label>Please share your detailed feedback *</label>
+        <label>
+            Please share your detailed feedback *
+            <span class="warning-note">⚠️ Please do not mention any names of lecturers or staff in your feedback.</span>
+        </label>
         <textarea id="feedback_text" placeholder="What do you like? What could be improved?"></textarea>
     </div>
 
     <div class="form-group">
-        <label>Additional Comments (Optional)</label>
+        <label>
+            Additional Comments (Optional)
+            <span class="warning-note">⚠️ Please do not include any personal names.</span>
+        </label>
         <textarea id="additional_comments" placeholder="Any other suggestions or concerns?"></textarea>
     </div>
 
@@ -315,7 +329,6 @@
             additional_comments
         };
 
-        // Show loading state
         document.getElementById('submit-btn').textContent = '⏳ Submitting...';
         document.getElementById('submit-btn').disabled = true;
         document.getElementById('loading-msg').style.display = 'block';
