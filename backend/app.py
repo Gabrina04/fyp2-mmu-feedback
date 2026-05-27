@@ -7,18 +7,20 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import json
 import os
 import re
+import nltk
 from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app)
 
-# Load spaCy for name detection
+# Download nltk names corpus if not already downloaded
 try:
-    import spacy
-    nlp = spacy.load("en_core_web_sm")
-    SPACY_AVAILABLE = True
-except:
-    SPACY_AVAILABLE = False
+    nltk.data.find('corpora/names')
+except LookupError:
+    nltk.download('names')
+
+from nltk.corpus import names as nltk_names
+ALL_NAMES = set(w.lower() for w in nltk_names.words())
 
 def connect_sheet():
     scope = ["https://spreadsheets.google.com/feeds",
@@ -37,29 +39,31 @@ def censor_names(text):
     if not text:
         return text
 
-    censored = text
-
-    # Method 1: spaCy NER for detecting any person name
-    if SPACY_AVAILABLE:
-        try:
-            doc = nlp(censored)
-            for ent in reversed(doc.ents):
-                if ent.label_ == "PERSON":
-                    censored = censored[:ent.start_char] + "[Name Redacted]" + censored[ent.end_char:]
-        except:
-            pass
-
-    # Method 2: Title-based censoring as backup
+    # Step 1: Title-based censoring (Dr, Prof, Mr, etc.)
     titles = [
         'Dr', 'Dr.', 'Prof', 'Prof.', 'Professor',
         'Mr', 'Mr.', 'Mrs', 'Mrs.', 'Ms', 'Ms.',
         'Sir', 'Madam', 'Mdm', 'Mdm.'
     ]
+    censored = text
     for title in titles:
         pattern = rf'\b{re.escape(title)}\.?\s+[A-Z][a-zA-Z]+(\s+[A-Z][a-zA-Z]+)*'
         censored = re.sub(pattern, f'{title} [Name Redacted]', censored)
 
-    return censored
+    # Step 2: NLTK name detection for capitalized words
+    words = censored.split()
+    result = []
+    for word in words:
+        clean_word = re.sub(r'[^a-zA-Z]', '', word)
+        if (clean_word and
+            clean_word[0].isupper() and
+            clean_word.lower() in ALL_NAMES and
+            len(clean_word) > 2):
+            result.append('[Name Redacted]')
+        else:
+            result.append(word)
+
+    return ' '.join(result)
 
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
@@ -135,7 +139,6 @@ def get_dashboard():
         positive_pct = round((positive / total) * 100, 1) if total > 0 else 0
         negative_pct = round((negative / total) * 100, 1) if total > 0 else 0
 
-        # Overall FSI
         fsi_values = []
         for r in rows:
             try:
@@ -144,7 +147,6 @@ def get_dashboard():
                 continue
         overall_fsi = round(sum(fsi_values) / len(fsi_values), 4) if fsi_values else 0
 
-        # Per category breakdown
         category_data = defaultdict(lambda: {
             'positive': 0, 'neutral': 0, 'negative': 0,
             'fsi_scores': [], 'total': 0
@@ -166,7 +168,6 @@ def get_dashboard():
             else:
                 category_data[cat]['neutral'] += 1
 
-        # Per specific area breakdown
         area_data = defaultdict(lambda: {
             'positive': 0, 'neutral': 0, 'negative': 0,
             'fsi_scores': [], 'total': 0
@@ -188,7 +189,6 @@ def get_dashboard():
             else:
                 area_data[area]['neutral'] += 1
 
-        # Build categories response
         categories = {}
         for cat, d in category_data.items():
             n = len(d['fsi_scores'])
@@ -200,7 +200,6 @@ def get_dashboard():
                 'fsi': round(sum(d['fsi_scores']) / n, 4) if n > 0 else 0
             }
 
-        # Build areas response
         areas = {}
         for area, d in area_data.items():
             n = len(d['fsi_scores'])
