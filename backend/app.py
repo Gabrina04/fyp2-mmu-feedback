@@ -12,6 +12,14 @@ from collections import defaultdict
 app = Flask(__name__)
 CORS(app)
 
+# Load spaCy for name detection
+try:
+    import spacy
+    nlp = spacy.load("en_core_web_sm")
+    SPACY_AVAILABLE = True
+except:
+    SPACY_AVAILABLE = False
+
 def connect_sheet():
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/drive"]
@@ -26,17 +34,31 @@ def connect_sheet():
     return sheet
 
 def censor_names(text):
-    # Common Malaysian academic titles
+    if not text:
+        return text
+
+    censored = text
+
+    # Method 1: spaCy NER for detecting any person name
+    if SPACY_AVAILABLE:
+        try:
+            doc = nlp(censored)
+            for ent in reversed(doc.ents):
+                if ent.label_ == "PERSON":
+                    censored = censored[:ent.start_char] + "[Name Redacted]" + censored[ent.end_char:]
+        except:
+            pass
+
+    # Method 2: Title-based censoring as backup
     titles = [
         'Dr', 'Dr.', 'Prof', 'Prof.', 'Professor',
         'Mr', 'Mr.', 'Mrs', 'Mrs.', 'Ms', 'Ms.',
         'Sir', 'Madam', 'Mdm', 'Mdm.'
     ]
-    censored = text
-    # Censor names that follow titles (e.g., "Dr Ahmad", "Prof Lee Chong")
     for title in titles:
         pattern = rf'\b{re.escape(title)}\.?\s+[A-Z][a-zA-Z]+(\s+[A-Z][a-zA-Z]+)*'
         censored = re.sub(pattern, f'{title} [Name Redacted]', censored)
+
     return censored
 
 def classify_sentiment(text):
@@ -70,7 +92,7 @@ def submit_feedback():
         sheet = connect_sheet()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Censor lecturer names before saving
+        # Censor all names before saving
         feedback_text = censor_names(data.get('feedback_text', ''))
         additional_comments = censor_names(data.get('additional_comments', ''))
 
