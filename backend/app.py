@@ -22,6 +22,25 @@ except LookupError:
 from nltk.corpus import names as nltk_names
 ALL_NAMES = set(w.lower() for w in nltk_names.words())
 
+# Common English words to exclude from name detection
+NOT_NAMES = {
+    'will', 'may', 'mark', 'art', 'bill', 'don', 'ray', 'sue',
+    'joy', 'faith', 'hope', 'grace', 'justice', 'angel', 'crystal',
+    'sky', 'rain', 'sunny', 'star', 'rose', 'violet', 'lily',
+    'good', 'bad', 'nice', 'best', 'last', 'just', 'only',
+    'first', 'second', 'third', 'free', 'new', 'old', 'big',
+    'the', 'this', 'that', 'they', 'them', 'then', 'than',
+    'campus', 'class', 'lab', 'wifi', 'portal', 'hostel',
+    'mmu', 'fist', 'fet', 'fob', 'fol', 'clic', 'clc',
+    'always', 'never', 'very', 'really', 'please', 'thank',
+    'monday', 'tuesday', 'wednesday', 'thursday', 'friday',
+    'saturday', 'sunday', 'january', 'february', 'march',
+    'april', 'june', 'july', 'august', 'september', 'october',
+    'november', 'december', 'melaka', 'malaysia', 'kuala',
+    'administration', 'academic', 'facilities', 'services',
+    'positive', 'negative', 'neutral', 'support', 'staff'
+}
+
 def connect_sheet():
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/drive"]
@@ -39,7 +58,7 @@ def censor_names(text):
     if not text:
         return text
 
-    # Step 1: Title-based censoring (Dr, Prof, Mr, etc.)
+    # Step 1: Title-based censoring
     titles = [
         'Dr', 'Dr.', 'Prof', 'Prof.', 'Professor',
         'Mr', 'Mr.', 'Mrs', 'Mrs.', 'Ms', 'Ms.',
@@ -50,20 +69,31 @@ def censor_names(text):
         pattern = rf'\b{re.escape(title)}\.?\s+[A-Z][a-zA-Z]+(\s+[A-Z][a-zA-Z]+)*'
         censored = re.sub(pattern, f'{title} [Name Redacted]', censored)
 
-    # Step 2: NLTK name detection for capitalized words
-    words = censored.split()
-    result = []
-    for word in words:
-        clean_word = re.sub(r'[^a-zA-Z]', '', word)
-        if (clean_word and
-            clean_word[0].isupper() and
-            clean_word.lower() in ALL_NAMES and
-            len(clean_word) > 2):
-            result.append('[Name Redacted]')
-        else:
-            result.append(word)
+    # Step 2: NLTK name detection
+    sentences = re.split(r'(?<=[.!?])\s+', censored)
+    result_sentences = []
 
-    return ' '.join(result)
+    for sentence in sentences:
+        words = sentence.split()
+        result_words = []
+        for i, word in enumerate(words):
+            clean_word = re.sub(r'[^a-zA-Z]', '', word)
+            is_first_word = (i == 0)
+            is_name = (
+                clean_word and
+                len(clean_word) > 2 and
+                clean_word[0].isupper() and
+                clean_word.lower() in ALL_NAMES and
+                clean_word.lower() not in NOT_NAMES and
+                not is_first_word
+            )
+            if is_name:
+                result_words.append('[Name Redacted]')
+            else:
+                result_words.append(word)
+        result_sentences.append(' '.join(result_words))
+
+    return ' '.join(result_sentences)
 
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
