@@ -43,7 +43,7 @@
         .form-group { margin-bottom: 18px; }
         label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px; color: #333; }
 
-        input[type="text"], input[type="password"], select {
+        input[type="text"], input[type="email"], input[type="password"], select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #ccc;
@@ -67,8 +67,10 @@
             font-size: 16px;
             cursor: pointer;
             margin-top: 6px;
+            font-weight: bold;
         }
         .login-btn:hover { background: #00215e; }
+        .login-btn:disabled { background: #7a9cc7; cursor: not-allowed; }
 
         .error-msg {
             display: none;
@@ -94,6 +96,21 @@
         }
 
         .forgot-link a:hover { text-decoration: underline; }
+
+        .signup-link {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .signup-link a {
+            color: #003087;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .signup-link a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -116,63 +133,148 @@
         </select>
     </div>
 
-    <div class="form-group">
-        <label>Student ID / Email *</label>
-        <input type="text" id="user_id" placeholder="Enter your Student ID or email">
+    <!-- Student login fields -->
+    <div id="student_fields" style="display:none;">
+        <div class="form-group">
+            <label>MMU Email *</label>
+            <input type="email" id="student_email" placeholder="Enter your MMU email">
+        </div>
+        <div class="form-group">
+            <label>Password *</label>
+            <input type="password" id="student_password" placeholder="Enter your password">
+        </div>
     </div>
 
-    <div class="form-group" id="password_group" style="display:none;">
-        <label>Password *</label>
-        <input type="password" id="password" placeholder="Enter your password">
+    <!-- Admin login fields -->
+    <div id="admin_fields" style="display:none;">
+        <div class="form-group">
+            <label>Admin ID *</label>
+            <input type="text" id="admin_id" placeholder="Enter admin ID">
+        </div>
+        <div class="form-group">
+            <label>Password *</label>
+            <input type="password" id="admin_password" placeholder="Enter your password">
+        </div>
     </div>
 
-    <button class="login-btn" onclick="handleLogin()">LOGIN</button>
+    <button class="login-btn" id="login-btn" onclick="handleLogin()">LOGIN</button>
 
-    <div class="error-msg" id="error_msg">❌ Invalid credentials or role. Please try again.</div>
+    <div class="error-msg" id="error_msg"></div>
 
     <div class="forgot-link">
         <a href="#" onclick="showForgotPassword()">Forgot Password?</a>
     </div>
+
+    <div class="signup-link" id="signup-link" style="display:none;">
+        Don't have an account? <a href="signup.html">Sign up here</a>
+    </div>
 </div>
 
-<script>
-    function handleRoleChange() {
+<!-- Firebase SDK -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyACOm_COGkEGK-2XcHaPC0SZKSwBhOcc-s",
+        authDomain: "mmu-feedback-system.firebaseapp.com",
+        projectId: "mmu-feedback-system",
+        storageBucket: "mmu-feedback-system.firebasestorage.app",
+        messagingSenderId: "972605107234",
+        appId: "1:972605107234:web:c241718a88530d5e422e7b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    window.handleRoleChange = function() {
         const role = document.getElementById('role').value;
-        const passwordGroup = document.getElementById('password_group');
+        const studentFields = document.getElementById('student_fields');
+        const adminFields = document.getElementById('admin_fields');
+        const signupLink = document.getElementById('signup-link');
+
+        studentFields.style.display = 'none';
+        adminFields.style.display = 'none';
+        signupLink.style.display = 'none';
+
         if (role === 'student') {
-            passwordGroup.style.display = 'none';
+            studentFields.style.display = 'block';
+            signupLink.style.display = 'block';
         } else if (role === 'admin') {
-            passwordGroup.style.display = 'block';
+            adminFields.style.display = 'block';
         }
     }
 
-    function handleLogin() {
-        const selectedRole = document.getElementById('role').value;
-        const userId = document.getElementById('user_id').value.trim();
-        const password = document.getElementById('password').value.trim();
+    window.handleLogin = async function() {
+        const role = document.getElementById('role').value;
         const errorMsg = document.getElementById('error_msg');
+        const btn = document.getElementById('login-btn');
 
         errorMsg.style.display = 'none';
 
-        if (!selectedRole || !userId) {
-            errorMsg.textContent = '❌ Please fill in all required fields.';
+        if (!role) {
+            errorMsg.textContent = '❌ Please select a role.';
             errorMsg.style.display = 'block';
             return;
         }
 
-        if (selectedRole === 'student') {
-            if (userId.length >= 5) {
-                sessionStorage.setItem('student_id', userId);
+        if (role === 'student') {
+            const email = document.getElementById('student_email').value.trim();
+            const password = document.getElementById('student_password').value;
+
+            if (!email || !password) {
+                errorMsg.textContent = '❌ Please fill in all fields.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Logging in...';
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                if (!user.emailVerified) {
+                    errorMsg.textContent = '❌ Please verify your email before logging in. Check your inbox!';
+                    errorMsg.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'LOGIN';
+                    return;
+                }
+
+                // Save student info to session
+                sessionStorage.setItem('student_id', user.displayName || email);
                 sessionStorage.setItem('role', 'student');
+                sessionStorage.setItem('email', email);
                 window.location.href = 'index.html';
-            } else {
-                errorMsg.textContent = '❌ Please enter a valid Student ID.';
+
+            } catch (error) {
+                btn.disabled = false;
+                btn.textContent = 'LOGIN';
+
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    errorMsg.textContent = '❌ Invalid email or password. Please try again.';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMsg.textContent = '❌ Too many failed attempts. Please try again later.';
+                } else {
+                    errorMsg.textContent = '❌ Error: ' + error.message;
+                }
                 errorMsg.style.display = 'block';
             }
         }
 
-        if (selectedRole === 'admin') {
-            if (userId === 'admin' && password === 'admin123') {
+        if (role === 'admin') {
+            const adminId = document.getElementById('admin_id').value.trim();
+            const adminPassword = document.getElementById('admin_password').value.trim();
+
+            if (!adminId || !adminPassword) {
+                errorMsg.textContent = '❌ Please fill in all fields.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            if (adminId === 'admin' && adminPassword === 'admin123') {
                 sessionStorage.setItem('role', 'admin');
                 window.location.href = 'admin.html';
             } else {
@@ -182,12 +284,30 @@
         }
     }
 
-    function showForgotPassword() {
+    window.showForgotPassword = async function() {
         const role = document.getElementById('role').value;
+
         if (role === 'admin') {
             alert('Please contact the system administrator to reset your password.');
-        } else {
-            alert('For students, your Student ID is your login. No password needed — just select Student role and enter your Student ID!');
+            return;
+        }
+
+        const email = document.getElementById('student_email').value.trim();
+
+        if (!email) {
+            alert('Please enter your MMU email address first, then click Forgot Password.');
+            return;
+        }
+
+        try {
+            await sendPasswordResetEmail(auth, email);
+            alert('✅ Password reset email sent! Please check your inbox.');
+        } catch (error) {
+            if (error.code === 'auth/user-not-found') {
+                alert('❌ No account found with this email. Please sign up first.');
+            } else {
+                alert('❌ Error: ' + error.message);
+            }
         }
     }
 </script>
