@@ -24,6 +24,46 @@ def connect_sheet():
     sheet = client.open("MMU_Student_Feedback").sheet1
     return sheet
 
+def detect_issue_type(text, specific_area):
+    text_lower = text.lower() if text else ''
+    area_lower = specific_area.lower() if specific_area else ''
+
+    if any(word in text_lower for word in ['wifi', 'wi-fi', 'internet', 'connection', 'network', 'slow', 'disconnect', 'lag', 'loading']):
+        return 'WiFi/Internet'
+    if any(word in text_lower for word in ['parking', 'park', 'car', 'vehicle', 'motorcycle', 'lot', 'space']):
+        return 'Parking'
+    if any(word in text_lower for word in ['dirty', 'clean', 'hygiene', 'smell', 'mess', 'toilet', 'bathroom', 'rubbish', 'trash', 'garbage']):
+        return 'Cleanliness'
+    if any(word in text_lower for word in ['lecturer', 'teacher', 'professor', 'teaching', 'lecture', 'class', 'subject', 'course', 'feedback', 'marks', 'grade']):
+        return 'Lecturer/Teaching'
+    if any(word in text_lower for word in ['broken', 'equipment', 'computer', 'pc', 'printer', 'projector', 'air cond', 'aircond', 'fan', 'light', 'chair', 'table', 'lab']):
+        return 'Facilities/Equipment'
+    if any(word in text_lower for word in ['security', 'safe', 'theft', 'stolen', 'guard', 'cctv', 'camera', 'lock', 'danger']):
+        return 'Security'
+    if any(word in text_lower for word in ['food', 'canteen', 'cafe', 'cafeteria', 'hungry', 'price', 'eat', 'meal', 'drink', 'expensive']):
+        return 'Food/Canteen'
+    if any(word in text_lower for word in ['portal', 'system', 'website', 'app', 'online', 'moodle', 'register', 'login', 'access']):
+        return 'System/Portal'
+    if any(word in text_lower for word in ['admin', 'office', 'staff', 'service', 'process', 'document', 'form', 'queue', 'wait']):
+        return 'Administrative'
+    if 'wifi' in area_lower or 'wi-fi' in area_lower:
+        return 'WiFi/Internet'
+    if 'parking' in area_lower or 'security' in area_lower:
+        return 'Security/Parking'
+    if 'hostel' in area_lower:
+        return 'Hostel'
+    if 'food' in area_lower or 'court' in area_lower:
+        return 'Food/Canteen'
+    if 'lab' in area_lower:
+        return 'Facilities/Equipment'
+    if 'library' in area_lower:
+        return 'Library'
+    if 'portal' in area_lower:
+        return 'System/Portal'
+    if 'sport' in area_lower or 'gym' in area_lower:
+        return 'Sports/Recreation'
+    return 'General'
+
 def classify_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
     analyzer.lexicon.update({
@@ -57,9 +97,11 @@ def submit_feedback():
 
         feedback_text = data.get('feedback_text', '')
         additional_comments = data.get('additional_comments', '')
+        specific_area = data.get('specific_area', '')
         rating = int(data.get('rating', 0))
         label, score = classify_sentiment(feedback_text)
         fsi = calculate_FSI(rating, score)
+        issue_type = detect_issue_type(feedback_text, specific_area)
 
         sheet.append_row([
             timestamp,
@@ -67,13 +109,14 @@ def submit_feedback():
             data.get('faculty', ''),
             data.get('level', ''),
             data.get('service_category', ''),
-            data.get('specific_area', ''),
+            specific_area,
             rating,
             feedback_text,
             additional_comments,
             label,
             score,
-            fsi
+            fsi,
+            issue_type
         ])
         return jsonify({"status": "success", "message": "Feedback submitted!"})
     except Exception as e:
