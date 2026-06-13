@@ -28,40 +28,52 @@ def detect_issue_type(text, specific_area):
     text_lower = text.lower() if text else ''
     area_lower = specific_area.lower() if specific_area else ''
 
-    if any(word in text_lower for word in ['wifi', 'wi-fi', 'internet', 'connection', 'network', 'slow', 'disconnect', 'lag', 'loading']):
-        return 'WiFi/Internet'
-    if any(word in text_lower for word in ['parking', 'park', 'car', 'vehicle', 'motorcycle', 'lot', 'space']):
-        return 'Parking'
-    if any(word in text_lower for word in ['dirty', 'clean', 'hygiene', 'smell', 'mess', 'toilet', 'bathroom', 'rubbish', 'trash', 'garbage']):
-        return 'Cleanliness'
-    if any(word in text_lower for word in ['lecturer', 'teacher', 'professor', 'teaching', 'lecture', 'class', 'subject', 'course', 'feedback', 'marks', 'grade']):
-        return 'Lecturer/Teaching'
-    if any(word in text_lower for word in ['broken', 'equipment', 'computer', 'pc', 'printer', 'projector', 'air cond', 'aircond', 'fan', 'light', 'chair', 'table', 'lab']):
-        return 'Facilities/Equipment'
-    if any(word in text_lower for word in ['security', 'safe', 'theft', 'stolen', 'guard', 'cctv', 'camera', 'lock', 'danger']):
-        return 'Security'
-    if any(word in text_lower for word in ['food', 'canteen', 'cafe', 'cafeteria', 'hungry', 'price', 'eat', 'meal', 'drink', 'expensive']):
+    # Step 1: Area-based detection FIRST (most reliable)
+    if 'food court' in area_lower or 'canteen' in area_lower or 'cafe' in area_lower:
         return 'Food/Canteen'
-    if any(word in text_lower for word in ['portal', 'system', 'website', 'app', 'online', 'moodle', 'register', 'login', 'access']):
-        return 'System/Portal'
-    if any(word in text_lower for word in ['admin', 'office', 'staff', 'service', 'process', 'document', 'form', 'queue', 'wait']):
-        return 'Administrative'
-    if 'wifi' in area_lower or 'wi-fi' in area_lower:
+    if 'hostel wi-fi' in area_lower or 'hostel wifi' in area_lower:
         return 'WiFi/Internet'
-    if 'parking' in area_lower or 'security' in area_lower:
-        return 'Security/Parking'
     if 'hostel' in area_lower:
         return 'Hostel'
-    if 'food' in area_lower or 'court' in area_lower:
-        return 'Food/Canteen'
-    if 'lab' in area_lower:
+    if 'campus security' in area_lower or 'parking' in area_lower:
+        return 'Security/Parking'
+    if 'fist labs' in area_lower or 'labs' in area_lower:
         return 'Facilities/Equipment'
     if 'library' in area_lower:
         return 'Library'
-    if 'portal' in area_lower:
+    if 'mmu portal' in area_lower or 'portal' in area_lower:
+        return 'System/Portal'
+    if 'moodle' in area_lower:
         return 'System/Portal'
     if 'sport' in area_lower or 'gym' in area_lower:
-        return 'Sports/Recreation'
+        return 'Facilities/Equipment'
+    if 'lecturer' in area_lower or 'feedback' in area_lower:
+        return 'Lecturer/Teaching'
+    if 'finance' in area_lower or 'exam' in area_lower or 'international' in area_lower:
+        return 'Administrative'
+    if 'clc' in area_lower or 'clic' in area_lower:
+        return 'Facilities/Equipment'
+
+    # Step 2: Text keyword detection (only if area doesn't match)
+    if any(word in text_lower for word in ['wifi', 'wi-fi', 'internet', 'connection', 'network', 'disconnect', 'lag']):
+        return 'WiFi/Internet'
+    if any(word in text_lower for word in ['dirty', 'clean', 'hygiene', 'smell', 'mess', 'toilet', 'rubbish']):
+        return 'Cleanliness'
+    if any(word in text_lower for word in ['lecturer', 'teacher', 'teaching', 'lecture', 'subject', 'course', 'marks', 'grade']):
+        return 'Lecturer/Teaching'
+    if any(word in text_lower for word in ['broken', 'equipment', 'computer', 'pc', 'printer', 'projector', 'aircond', 'fan', 'chair']):
+        return 'Facilities/Equipment'
+    if any(word in text_lower for word in ['security', 'theft', 'stolen', 'guard', 'cctv']):
+        return 'Security'
+    if any(word in text_lower for word in ['food', 'canteen', 'cafe', 'hungry', 'eat', 'meal', 'drink']):
+        return 'Food/Canteen'
+    if any(word in text_lower for word in ['parking', 'park', 'car', 'vehicle', 'motorcycle']):
+        return 'Parking'
+    if any(word in text_lower for word in ['portal', 'system', 'website', 'online', 'moodle', 'register', 'login']):
+        return 'System/Portal'
+    if any(word in text_lower for word in ['admin', 'office', 'staff', 'process', 'document', 'form', 'queue', 'wait']):
+        return 'Administrative'
+
     return 'General'
 
 def classify_sentiment(text):
